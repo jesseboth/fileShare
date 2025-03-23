@@ -12,7 +12,8 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Function to recursively get all markdown files
-function getMarkdownFiles($dir) {
+function getMarkdownFiles($dir, $depth = 0) {
+    $maxDepth = 10;
     $results = [];
 
     $files = scandir($dir);
@@ -22,9 +23,9 @@ function getMarkdownFiles($dir) {
         $path = $dir . '/' . $file;
         $relativePath = str_replace('../../notes/', '', $path); // Make path relative to root
 
-        if (is_dir($path)) {
+        if (is_dir($path) && $depth < $maxDepth) {
             // It's a directory, recurse into it
-            $subResults = getMarkdownFiles($path);
+            $subResults = getMarkdownFiles($path, $depth + 1);
             foreach ($subResults as $subFile) {
                 $results[] = $subFile;
             }

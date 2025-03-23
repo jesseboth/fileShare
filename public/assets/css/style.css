@@ -277,6 +277,26 @@ main {
     padding-left: 96px;
 }
 
+.nested-level-6 {
+    padding-left: 112px;
+}
+
+.nested-level-7 {
+    padding-left: 128px;
+}
+
+.nested-level-8 {
+    padding-left: 144px;
+}
+
+.nested-level-9 {
+    padding-left: 160px;
+}
+
+.nested-level-10 {
+    padding-left: 176px;
+}
+
 #content-container {
     flex-grow: 1;
     overflow-y: auto;
