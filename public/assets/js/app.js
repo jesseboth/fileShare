@@ -354,6 +354,7 @@ function setupDetailsElements() {
 function filterFileTree(searchTerm) {
     // If search term is empty, show all files
     if (!searchTerm) {
+        document.querySelector('.sidebar-header').textContent = '';
         organizeAndRenderFileTree(allFiles);
         return;
     }
@@ -426,9 +427,8 @@ function setupSearch() {
 // Function to execute content search
 function executeContentSearch() {
     const searchTerm = document.getElementById('content-search').value.trim();
-    if (searchTerm) {
-        performContentSearch(searchTerm);
-    } else {
+    performContentSearch(searchTerm);
+    if (!searchTerm){
         // If search is cleared, revert to showing all files
         currentSearchTerm = '';
         organizeAndRenderFileTree(allFiles);
@@ -443,10 +443,12 @@ function executeContentSearch() {
 
 // Function to perform content search
 async function performContentSearch(searchTerm) {
-    if (!searchTerm) return;
+    if (!searchTerm) {
+        document.querySelector('.sidebar-header').textContent = '';
+        return;
+    }
 
     currentSearchTerm = searchTerm;
-
     try {
         const sidebarHeader = document.querySelector('.sidebar-header');
         sidebarHeader.textContent = 'Searching...';

@@ -31,13 +31,13 @@ require_once '../includes/config.php';
     </header>
     <main>
         <div id="file-list">
-            <!-- <div class="sidebar-header">Available Files</div> -->
             <div class="sidebar-search">
                 <input type="text" id="search" class="search-bar" placeholder="Filter files...">
                 <span class="search-icon" id="file-search-icon">
                     <i class="material-icons">search</i>
                 </span>
             </div>
+            <div class="sidebar-header"></div>
             <div class="file-entries">
                 <!-- Files will be loaded here -->
             </div>
