@@ -54,12 +54,10 @@ function organizeAndRenderFileTree(files) {
 
     // Step 1: Build a nested tree structure
     const root = {};
-    const filePaths = {};
 
     for (const file of files) {
         const parts = file.substring(1).split('/');
         fileName = parts[parts.length - 1]
-        filePaths[fileName] = parts.join('/');
         let current = root;
 
         for (let i = 0; i < parts.length; i++) {
@@ -68,6 +66,9 @@ function organizeAndRenderFileTree(files) {
                 current[part] = {};
             }
             current = current[part];
+            if (part && part.endsWith('.md')) {
+                current[part] = parts.join('/');
+            }
         }
     }
 
@@ -75,9 +76,9 @@ function organizeAndRenderFileTree(files) {
     function renderTree(tree, parentElem, level = 0) {
         var top = [];
         for (const name in tree) {
-            // const isFile = tree[name].contains('.md');
+
             const isFile = name.endsWith('.md');
-            if(isFile && level == 0){
+            if (isFile && level == 0) {
                 top.push(name)
                 continue;
             }
@@ -89,7 +90,7 @@ function organizeAndRenderFileTree(files) {
                 <i class="material-icons">${isFile ? 'insert_drive_file' : 'folder'}</i>
             `;
             if (isFile) {
-                entryDiv.innerHTML += `<a href="#${filePaths[name]}">${name.slice(0, -3)}</a>`;
+                entryDiv.innerHTML += `<a href="#${tree[name][name]}">${name.slice(0, -3)}</a>`;
             } else {
                 entryDiv.innerHTML += `<span class="folder-name">${name}</span>`;
             }
@@ -112,13 +113,13 @@ function organizeAndRenderFileTree(files) {
                 renderTree(tree[name], contentsDiv, level + 1);
             }
         }
-        for (const name of top){
+        for (const name of top) {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'file-entry';
             entryDiv.classList.add(`nested-level-${level}`);
             entryDiv.innerHTML = `
                 <i class="material-icons">insert_drive_file</i>
-                <a href="#${name}">${name.slice(0, -3)}</a>
+                <a href="#${tree[name][name]}">${name.slice(0, -3)}</a>
             `;
             parentElem.appendChild(entryDiv);
         }
@@ -247,11 +248,37 @@ async function loadMarkdownFile(filename) {
 
     try {
         const response = await fetch(`notes/${filename}`);
+
+        // file path is all but the last element in finame split by /
+        const filePath = (filename.split('/'));
+        filePath.pop();
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const markdownText = await response.text();
+        let markdownText = await response.text();
+
+        // Regular Expression to find local src attributes that need updating
+        const regexSRC = /src="((?!http:\/\/|https:\/\/)[^"]+)"/g;
+        markdownText = markdownText.replace(regexSRC, `src="notes/${filePath}/$1"`);
+        
+        const regexHREF = /href="((?!http:\/\/|https:\/\/)[^"]+)"/g;
+        markdownText = markdownText.replace(regexHREF, `href="notes/${filePath}/$1"`);
+        
+        const regexStyle = /url\('((?!http:\/\/|https:\/\/)[^']+)'\)/g;
+        markdownText = markdownText.replace(regexStyle, `url('notes/${filePath}/$1')`);
+        
+        const regexSrcset = /srcset="([^"]+)"/g;
+        markdownText = markdownText.replace(regexSrcset, function(match, p1) {
+            return 'srcset="' + p1.split(', ').map(src => {
+                const parts = src.split(' ');
+                if (!parts[0].startsWith('http://') && !parts[0].startsWith('https://')) {
+                    parts[0] = `notes/${filePath}/` + parts[0];
+                }
+                return parts.join(' ');
+            }).join(', ') + '"';
+        });
 
         // Convert Markdown to HTML
         let html = marked.parse(markdownText);

@@ -123,6 +123,7 @@ main {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    user-select: none;
 }
 
 .sidebar-header {
@@ -551,4 +552,13 @@ details.contains-match {
     .search-container {
         max-width: none;
     }
+}
+
+#resizer {
+    width: 5px;
+    cursor: ew-resize;
+    /* background-color: var(--accent-color); */
+    height: 100%;
+    position: relative; /* Ensure it's correctly positioned between sections */
+    z-index: 10; /* To ensure it's clickable over the adjacent divs */
 }

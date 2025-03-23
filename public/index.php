@@ -31,7 +31,7 @@ require_once '../includes/config.php';
     </header>
     <main>
         <div id="file-list">
-            <div class="sidebar-header">Available Files</div>
+            <!-- <div class="sidebar-header">Available Files</div> -->
             <div class="sidebar-search">
                 <input type="text" id="search" class="search-bar" placeholder="Filter files...">
                 <span class="search-icon" id="file-search-icon">
@@ -42,6 +42,7 @@ require_once '../includes/config.php';
                 <!-- Files will be loaded here -->
             </div>
         </div>
+        <div id="resizer"></div>
         <div id="content-container">
             <div id="content" class="markdown-body">
                 <!-- Markdown content will be displayed here -->
@@ -52,6 +53,7 @@ require_once '../includes/config.php';
     <!-- Include Markdown processor -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="assets/js/app.js"></script>
+    <script src="assets/js/resize.js"></script>
 </body>
 
 </html>

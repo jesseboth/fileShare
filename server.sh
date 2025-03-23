@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PORT="8888"
+
 PHP_SERVER_ROOT="public"
 PHP_LOGGING_PATH="log/server"
 
@@ -10,8 +12,8 @@ if [ ! -e "notes" ]; then
 fi
 
 start_server() {
-  nohup php -S 0.0.0.0:8888 -t ${PHP_SERVER_ROOT} > ${PHP_LOGGING_PATH}.log 2>&1 &
-  echo "PHP server started on http://<ip>:8888 (PID: $!)"
+  nohup php -S 0.0.0.0:$PORT -t ${PHP_SERVER_ROOT} > ${PHP_LOGGING_PATH}.log 2>&1 &
+  echo "PHP server started on http://<ip>:$PORT (PID: $!)"
   echo $! > ${PHP_LOGGING_PATH}.pid
 }
 
