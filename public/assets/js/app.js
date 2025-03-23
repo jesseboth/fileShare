@@ -262,6 +262,9 @@ async function loadMarkdownFile(filename) {
         // Regular Expression to find local src attributes that need updating
         const regexSRC = /src="((?!http:\/\/|https:\/\/)[^"]+)"/g;
         markdownText = markdownText.replace(regexSRC, `src="notes/${filePath}/$1"`);
+
+        const regexMarkdownImg = /!\[.*?\]\((?!http:\/\/|https:\/\/)(.*?)\)/g;
+        markdownText = markdownText.replace(regexMarkdownImg, `![Local Image](notes/${filePath.join("/")}/$1)`)
         
         const regexHREF = /href="((?!http:\/\/|https:\/\/)[^"]+)"/g;
         markdownText = markdownText.replace(regexHREF, `href="notes/${filePath}/$1"`);
