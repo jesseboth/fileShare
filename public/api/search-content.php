@@ -28,7 +28,7 @@ $command = "cd $directory && ag -l --md $searchTerm";
 exec($command, $output, $returnCode);
 
 // Check for command execution success
-if ($returnCode !== 0) {
+if ($returnCode !== 0 && $returnCode !== 1) {
     echo json_encode([
         'status' => 'error',
         'message' => 'Search failed to execute',
