@@ -578,7 +578,7 @@ details.contains-match {
     width: 5px;
     cursor: ew-resize;
     /* background-color: var(--accent-color); */
-    height: 100%;
+    height: auto;
     position: relative; /* Ensure it's correctly positioned between sections */
     z-index: 10; /* To ensure it's clickable over the adjacent divs */
 }

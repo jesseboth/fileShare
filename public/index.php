@@ -16,11 +16,12 @@ require_once '../includes/config.php';
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
     <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="manifest" href="manifest.json">
 </head>
 
 <body>
     <header>
-        <h1>Notes</h1>
+        <h1 id="page-title" onclick="window.location.reload();" style="cursor: pointer;">Notes</h1>
         <div class="search-container">
             <span class="search-label"></span>
             <input type="text" id="content-search" placeholder="Search all markdown files...">
