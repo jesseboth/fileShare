@@ -1,12 +1,12 @@
 #!/bin/bash
 
-PORT="8888"
+PORT="7999"
 
 PHP_SERVER_ROOT="public"
 PHP_LOGGING_PATH="log/server"
 
-if [ ! -e "notes" ]; then
-  echo "Notes directory not found. Please create a 'notes' directory."
+if [ ! -e "files" ]; then
+  echo "Notes directory not found. Please create a 'files' directory."
   echo "Create directory or symbolic link to 'notes' from another location."
   exit 1
 fi

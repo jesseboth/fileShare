@@ -1,10 +1,11 @@
 {
-    "name": "Notes",
-    "short_name": "Notes",
+    "name": "File Share",
+    "short_name": "FileShare",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#000000",
-    "theme_color": "#207dde",
+    "background_color": "#0e1117",
+    "theme_color": "#58a6ff",
+    "description": "View and download files from a shared directory",
     "icons": [
       {
         "src": "/img/notes.png",

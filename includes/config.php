@@ -1,8 +1,8 @@
 <?php
 // Configuration settings for the application
-define('NOTES_DIR', __DIR__ . '/../notes/');
+define('FILES_DIR', __DIR__ . '/../files/');
 define('BASE_URL', '/');
-define('SITE_TITLE', 'mdNotes');
+define('SITE_TITLE', 'File Share');
 
 // Error reporting (turn off in production)
 ini_set('display_errors', 1);

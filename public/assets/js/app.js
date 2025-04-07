@@ -17,6 +17,31 @@ marked.setOptions({
 let allFiles = [];
 let currentSearchTerm = '';
 
+// Function to get appropriate icon for file type
+function getFileIcon(mimeType) {
+    if (mimeType.startsWith('image/')) {
+        return 'image';
+    } else if (mimeType.startsWith('text/')) {
+        return 'description';
+    } else if (mimeType.startsWith('application/pdf')) {
+        return 'picture_as_pdf';
+    } else if (mimeType.startsWith('video/')) {
+        return 'videocam';
+    } else if (mimeType.startsWith('audio/')) {
+        return 'audiotrack';
+    } else if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) {
+        return 'table_chart';
+    } else if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) {
+        return 'slideshow';
+    } else if (mimeType.includes('document') || mimeType.includes('word')) {
+        return 'article';
+    } else if (mimeType.includes('zip') || mimeType.includes('compressed')) {
+        return 'folder_zip';
+    } else {
+        return 'insert_drive_file';
+    }
+}
+
 // Function to load the file list
 async function loadFileList() {
     try {
@@ -29,10 +54,15 @@ async function loadFileList() {
         // Load the first file by default if available
         if (files.length > 0) {
             if (window.location.hash) {
-                const filename = window.location.hash.substring(1);
-                loadMarkdownFile(filename);
+                const filePath = window.location.hash.substring(1);
+                const file = files.find(f => f.path === filePath);
+                if (file) {
+                    loadFile(file);
+                } else {
+                    loadFile(files[0]);
+                }
             } else {
-                loadMarkdownFile(files[0]);
+                loadFile(files[0]);
             }
         }
 
@@ -47,7 +77,6 @@ async function loadFileList() {
 }
 
 // Function to organize files into a directory tree structure
-// TODO: this needs to be rafactored to support subdirs better
 function organizeAndRenderFileTree(files) {
     const fileEntriesElem = document.querySelector('.file-entries');
     fileEntriesElem.innerHTML = ''; // Clear existing entries
@@ -56,51 +85,54 @@ function organizeAndRenderFileTree(files) {
     const root = {};
 
     for (const file of files) {
-        const parts = file.substring(1).split('/');
-        fileName = parts[parts.length - 1]
+        const parts = file.path.split('/');
+        const fileName = parts[parts.length - 1];
         let current = root;
 
-        for (let i = 0; i < parts.length; i++) {
+        // Build directory structure
+        for (let i = 0; i < parts.length - 1; i++) {
             const part = parts[i];
             if (!current[part]) {
-                current[part] = {};
+                current[part] = { __isDir: true };
             }
             current = current[part];
-            if (part && part.endsWith('.md')) {
-                current[part] = parts.join('/');
-            }
         }
+
+        // Add file at the end
+        current[fileName] = file;
     }
 
     // Step 2: Recursively render the tree
     function renderTree(tree, parentElem, level = 0) {
-        var top = [];
+        // First render directories
         for (const name in tree) {
-
-            const isFile = name.endsWith('.md');
-            if (isFile && level == 0) {
-                top.push(name)
-                continue;
-            }
-
-            const entryDiv = document.createElement('div');
-            entryDiv.className = isFile ? 'file-entry' : 'folder-entry';
-            entryDiv.classList.add(`nested-level-${level}`);
-            entryDiv.innerHTML = `
-                <i class="material-icons">${isFile ? 'insert_drive_file' : 'folder'}</i>
-            `;
-            if (isFile) {
-                entryDiv.innerHTML += `<a href="#${tree[name][name]}">${name.slice(0, -3)}</a>`;
-            } else {
-                entryDiv.innerHTML += `<span class="folder-name">${name}</span>`;
-            }
-
-            parentElem.appendChild(entryDiv);
-
+            if (name === '__isDir') continue;
+            
+            const item = tree[name];
+            const isFile = !item.__isDir;
 
             if (!isFile) {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'folder-entry';
+                entryDiv.classList.add(`nested-level-${level}`);
+                
+                // Set initial folder icon based on level (top level folders start open)
+                const folderIcon = level === 0 ? 'folder_open' : 'folder';
+                
+                entryDiv.innerHTML = `
+                    <i class="material-icons">${folderIcon}</i>
+                    <span class="folder-name">${name}</span>
+                `;
+                parentElem.appendChild(entryDiv);
+
                 const contentsDiv = document.createElement('div');
                 contentsDiv.className = 'folder-contents';
+                
+                // Auto-expand top level folders
+                if (level === 0) {
+                    contentsDiv.classList.add('open');
+                }
+                
                 parentElem.appendChild(contentsDiv);
 
                 // Toggle open/close
@@ -110,18 +142,57 @@ function organizeAndRenderFileTree(files) {
                         contentsDiv.classList.contains('open') ? 'folder_open' : 'folder';
                 });
 
-                renderTree(tree[name], contentsDiv, level + 1);
+                renderTree(item, contentsDiv, level + 1);
             }
         }
-        for (const name of top) {
-            const entryDiv = document.createElement('div');
-            entryDiv.className = 'file-entry';
-            entryDiv.classList.add(`nested-level-${level}`);
-            entryDiv.innerHTML = `
-                <i class="material-icons">insert_drive_file</i>
-                <a href="#${tree[name][name]}">${name.slice(0, -3)}</a>
-            `;
-            parentElem.appendChild(entryDiv);
+
+        // Then render files
+        for (const name in tree) {
+            if (name === '__isDir') continue;
+            
+            const item = tree[name];
+            const isFile = !item.__isDir;
+
+            if (isFile) {
+                const fileData = item;
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'file-entry';
+                entryDiv.classList.add(`nested-level-${level}`);
+                entryDiv.dataset.filepath = fileData.path;
+                
+                const fileIcon = getFileIcon(fileData.type);
+                
+                // Add padding based on level for proper indentation
+                const paddingStyle = level > 0 ? `style="padding-left: ${(level * 16) + 15}px"` : '';
+                
+                entryDiv.innerHTML = `
+                    <div class="file-entry-content" ${paddingStyle}>
+                        <i class="material-icons file-icon">${fileIcon}</i>
+                        <a href="#${fileData.path}" class="file-name">${fileData.name}</a>
+                        <div class="file-info">
+                            <span class="file-size">${fileData.size}</span>
+                        </div>
+                        <div class="file-actions">
+                            <a href="/api/download-file.php?file=${encodeURIComponent(fileData.path)}" 
+                               class="download-link" title="Download file">
+                                <i class="material-icons">download</i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+                
+                parentElem.appendChild(entryDiv);
+                
+                // Prevent download link from triggering file load
+                entryDiv.querySelector('.download-link').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+                
+                // Add click handler to load the file
+                entryDiv.addEventListener('click', () => {
+                    loadFile(fileData);
+                });
+            }
         }
     }
 
@@ -218,112 +289,172 @@ function performClientSideSearch(contentElement, searchTerm) {
     return totalMatches;
 }
 
-// Function to load and display a markdown file
-async function loadMarkdownFile(filename) {
+// Function to load and display a file
+async function loadFile(fileData) {
     const contentElem = document.getElementById('content');
-    contentElem.innerHTML = '<div class="loading">Loading note</div>';
+    contentElem.innerHTML = '<div class="loading">Loading file</div>';
+    contentElem.className = 'markdown-body'; // Reset class
 
     // Update active state in sidebar
-    document.querySelectorAll('.file-entry, .file-entry-nested').forEach(item => {
-        if (item.dataset.filename === filename) {
+    document.querySelectorAll('.file-entry').forEach(item => {
+        if (item.dataset.filepath === fileData.path) {
             item.classList.add('active');
-
-            // Expand the parent folder if this is a nested file
-            if (item.classList.contains('file-entry-nested')) {
-                let parent = item.parentElement;
-                while (parent && parent.classList.contains('folder-contents')) {
-                    parent.classList.add('open');
-                    // Update the folder icon
-                    const folderIcon = parent.previousElementSibling.querySelector('.material-icons');
-                    if (folderIcon) {
-                        folderIcon.textContent = 'folder_open';
-                    }
-                    parent = parent.parentElement;
-                }
-            }
         } else {
             item.classList.remove('active');
         }
     });
 
     try {
-        const response = await fetch(`notes/${filename}`);
+        // Update the URL hash
+        window.location.hash = fileData.path;
 
-        // file path is all but the last element in finame split by /
-        const filePath = (filename.split('/'));
-        filePath.pop();
+        // Display file information in the header
+        const fileInfoHeader = document.createElement('div');
+        fileInfoHeader.className = 'file-info-header';
+        fileInfoHeader.innerHTML = `
+            <div class="file-details">
+                <h2>${fileData.name}</h2>
+                <div class="file-metadata">
+                    <span class="file-type">${fileData.type}</span>
+                    <span class="file-size">${fileData.size}</span>
+                    <span class="file-modified">Modified: ${fileData.modified}</span>
+                </div>
+            </div>
+            <div class="file-actions-header">
+                <a href="/api/download-file.php?file=${encodeURIComponent(fileData.path)}" 
+                   class="download-button" title="Download file">
+                    <i class="material-icons">download</i> Download
+                </a>
+            </div>
+        `;
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        let markdownText = await response.text();
-
-        // Regular Expression to find local src attributes that need updating
-        const regexSRC = /src="((?!http:\/\/|https:\/\/)[^"]+)"/g;
-        markdownText = markdownText.replace(regexSRC, `src="notes/${filePath}/$1"`);
-
-        const regexMarkdownImg = /!\[.*?\]\((?!http:\/\/|https:\/\/)(.*?)\)/g;
-        markdownText = markdownText.replace(regexMarkdownImg, `![Local Image](notes/${filePath.join("/")}/$1)`)
-        
-        const regexHREF = /href="((?!http:\/\/|https:\/\/)[^"]+)"/g;
-        markdownText = markdownText.replace(regexHREF, `href="notes/${filePath}/$1"`);
-        
-        const regexStyle = /url\('((?!http:\/\/|https:\/\/)[^']+)'\)/g;
-        markdownText = markdownText.replace(regexStyle, `url('notes/${filePath}/$1')`);
-        
-        const regexSrcset = /srcset="([^"]+)"/g;
-        markdownText = markdownText.replace(regexSrcset, function(match, p1) {
-            return 'srcset="' + p1.split(', ').map(src => {
-                const parts = src.split(' ');
-                if (!parts[0].startsWith('http://') && !parts[0].startsWith('https://')) {
-                    parts[0] = `notes/${filePath}/` + parts[0];
+        // Handle different file types
+        if (fileData.type.startsWith('image/')) {
+            // Image file
+            contentElem.className = 'image-viewer';
+            contentElem.innerHTML = `
+                ${fileInfoHeader.outerHTML}
+                <div class="image-container">
+                    <img src="/api/view-file.php?file=${encodeURIComponent(fileData.path)}" alt="${fileData.name}">
+                </div>
+            `;
+        } else if (fileData.type.startsWith('text/') || fileData.is_text) {
+            // Text file
+            try {
+                const response = await fetch(`/api/view-file.php?file=${encodeURIComponent(fileData.path)}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return parts.join(' ');
-            }).join(', ') + '"';
-        });
-
-        // Convert Markdown to HTML
-        let html = marked.parse(markdownText);
-
-        // Create a container for the rendered content
-        contentElem.innerHTML = html;
-
-        // Apply syntax highlighting to code blocks
-        document.querySelectorAll('pre code').forEach((block) => {
-            hljs.highlightElement(block);
-        });
-
-        // If we have a search term, highlight it in the content
-        if (currentSearchTerm) {
-            // Create info banner about search
-            const matchesInfo = document.createElement('div');
-            matchesInfo.className = 'matches-info';
-
-            // Perform client-side search and highlighting
-            const matchCount = performClientSideSearch(contentElem, currentSearchTerm);
-
-            if (matchCount > 0) {
-                matchesInfo.innerHTML = `Found <span class="match-count">${matchCount}</span> occurrences of "${currentSearchTerm}" in this file`;
-
-                // Insert the info banner at the top
-                contentElem.insertBefore(matchesInfo, contentElem.firstChild);
-
-                // Scroll to the first match after a short delay
-                setTimeout(() => {
-                    const firstMatch = document.querySelector('.highlight');
-                    if (firstMatch) {
-                        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                let text = await response.text();
+                let html;
+                
+                // If it's markdown, parse it
+                if (fileData.name.endsWith('.md')) {
+                    html = marked.parse(text);
+                } else {
+                    // For other text files, wrap in pre tag for formatting
+                    html = `<pre class="code-block">${escapeHtml(text)}</pre>`;
+                }
+                
+                contentElem.innerHTML = fileInfoHeader.outerHTML + html;
+                
+                // Apply syntax highlighting to code blocks
+                document.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+                
+                // If we have a search term, highlight it in the content
+                if (currentSearchTerm) {
+                    // Create info banner about search
+                    const matchesInfo = document.createElement('div');
+                    matchesInfo.className = 'matches-info';
+                    
+                    // Perform client-side search and highlighting
+                    const matchCount = performClientSideSearch(contentElem, currentSearchTerm);
+                    
+                    if (matchCount > 0) {
+                        matchesInfo.innerHTML = `Found <span class="match-count">${matchCount}</span> occurrences of "${currentSearchTerm}" in this file`;
+                        
+                        // Insert the info banner after the file info header
+                        const fileInfoHeader = contentElem.querySelector('.file-info-header');
+                        if (fileInfoHeader) {
+                            fileInfoHeader.insertAdjacentElement('afterend', matchesInfo);
+                        } else {
+                            contentElem.insertBefore(matchesInfo, contentElem.firstChild);
+                        }
+                        
+                        // Scroll to the first match after a short delay
+                        setTimeout(() => {
+                            const firstMatch = document.querySelector('.highlight');
+                            if (firstMatch) {
+                                firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 100);
                     }
-                }, 100);
+                }
+            } catch (error) {
+                console.error('Error loading text file:', error);
+                contentElem.innerHTML = fileInfoHeader.outerHTML + `
+                    <div class="error-message">
+                        <h3>Error Loading File</h3>
+                        <p>${error.message}</p>
+                        <p>File: ${fileData.path}</p>
+                    </div>
+                `;
             }
+        } else if (fileData.type === 'application/pdf') {
+            // PDF file
+            contentElem.className = 'pdf-viewer';
+            contentElem.innerHTML = `
+                ${fileInfoHeader.outerHTML}
+                <div class="pdf-container">
+                    <iframe src="/api/view-file.php?file=${encodeURIComponent(fileData.path)}" 
+                            title="${fileData.name}" width="100%" height="600px"></iframe>
+                </div>
+            `;
+        } else if (fileData.type.startsWith('video/')) {
+            // Video file
+            contentElem.className = 'video-viewer';
+            contentElem.innerHTML = `
+                ${fileInfoHeader.outerHTML}
+                <div class="video-container">
+                    <video controls>
+                        <source src="/api/view-file.php?file=${encodeURIComponent(fileData.path)}" type="${fileData.type}">
+                        Your browser does not support the video tag.
+                    </video>
+                </div>
+            `;
+        } else if (fileData.type.startsWith('audio/')) {
+            // Audio file
+            contentElem.className = 'audio-viewer';
+            contentElem.innerHTML = `
+                ${fileInfoHeader.outerHTML}
+                <div class="audio-container">
+                    <audio controls>
+                        <source src="/api/view-file.php?file=${encodeURIComponent(fileData.path)}" type="${fileData.type}">
+                        Your browser does not support the audio tag.
+                    </audio>
+                </div>
+            `;
+        } else {
+            // Other file types - just show download option
+            contentElem.className = 'file-info';
+            contentElem.innerHTML = `
+                ${fileInfoHeader.outerHTML}
+                <div class="file-preview">
+                    <div class="file-icon-large">
+                        <i class="material-icons">${getFileIcon(fileData.type)}</i>
+                    </div>
+                    <p>This file type cannot be previewed in the browser.</p>
+                    <p>Click the download button to save the file to your computer.</p>
+                </div>
+            `;
         }
 
         // Set up details elements to keep state when clicked
         setupDetailsElements();
-
-        // Update the URL hash
-        window.location.hash = filename;
 
         // Scroll to top of content if no search matches
         if (!currentSearchTerm) {
@@ -331,14 +462,25 @@ async function loadMarkdownFile(filename) {
         }
 
     } catch (error) {
-        console.error('Error loading markdown file:', error);
-        contentElem.innerHTML =
-            `<div class="error-message">
+        console.error('Error loading file:', error);
+        contentElem.innerHTML = `
+            <div class="error-message">
                 <h3>Error Loading File</h3>
                 <p>${error.message}</p>
-                <p>File: ${filename}</p>
-            </div>`;
+                <p>File: ${fileData.path}</p>
+            </div>
+        `;
     }
+}
+
+// Helper function to escape HTML
+function escapeHtml(unsafe) {
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 // Set up details elements to retain open/closed state
@@ -363,8 +505,9 @@ function filterFileTree(searchTerm) {
     }
 
     // Otherwise, filter files that match the search term
-    const filteredFiles = allFiles.filter(file =>
-        file.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredFiles = allFiles.filter(file => 
+        file.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        file.path.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     // Show filtered files with flattened view (no folders)
@@ -383,18 +526,37 @@ function filterFileTree(searchTerm) {
     filteredFiles.forEach(file => {
         const listItem = document.createElement('div');
         listItem.className = 'file-entry';
-        listItem.dataset.filename = file;
+        listItem.dataset.filepath = file.path;
 
-        // Show full path when filtering
-        const displayName = file.replace('.md', '').substring(1);
+        const fileIcon = getFileIcon(file.type);
 
         listItem.innerHTML = `
-            <i class="material-icons file-icon">description</i>
-            <a href="#${file}">${displayName}</a>
+            <div class="file-entry-content">
+                <i class="material-icons file-icon">${fileIcon}</i>
+                <a href="#${file.path}" class="file-name">${file.name}</a>
+                <div class="file-info">
+                    <span class="file-size">${file.size}</span>
+                </div>
+                <div class="file-actions">
+                    <a href="/api/download-file.php?file=${encodeURIComponent(file.path)}" 
+                       class="download-link" title="Download file">
+                        <i class="material-icons">download</i>
+                    </a>
+                </div>
+            </div>
         `;
 
         fileEntriesElem.appendChild(listItem);
-        listItem.addEventListener('click', () => loadMarkdownFile(file));
+        
+        // Prevent download link from triggering file load
+        listItem.querySelector('.download-link').addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        // Add click handler to load the file
+        listItem.addEventListener('click', () => {
+            loadFile(file);
+        });
     });
 }
 
@@ -438,8 +600,11 @@ function executeContentSearch() {
 
         // Reload the current file without highlighting
         if (window.location.hash) {
-            const filename = window.location.hash.substring(1);
-            loadMarkdownFile(filename);
+            const filePath = window.location.hash.substring(1);
+            const file = allFiles.find(f => f.path === filePath);
+            if (file) {
+                loadFile(file);
+            }
         }
     }
 }
@@ -478,27 +643,55 @@ async function performContentSearch(searchTerm) {
                 return;
             }
 
+            // Find the matching file objects from allFiles
+            const matchingFiles = [];
+            for (const filePath of data.files) {
+                const file = allFiles.find(f => f.path === filePath);
+                if (file) {
+                    matchingFiles.push(file);
+                }
+            }
+
             // Add each file as a direct entry
-            data.files.forEach(file => {
+            matchingFiles.forEach(file => {
                 const listItem = document.createElement('div');
                 listItem.className = 'file-entry';
-                listItem.dataset.filename = file;
+                listItem.dataset.filepath = file.path;
 
-                // Show full path when filtering
-                const displayName = file.replace('.md', '');
+                const fileIcon = getFileIcon(file.type);
 
                 listItem.innerHTML = `
-                    <i class="material-icons file-icon">description</i>
-                    <a href="#${file}">${displayName}</a>
+                    <div class="file-entry-content">
+                        <i class="material-icons file-icon">${fileIcon}</i>
+                        <a href="#${file.path}">${file.name}</a>
+                        <div class="file-info">
+                            <span class="file-size">${file.size}</span>
+                        </div>
+                        <div class="file-actions">
+                            <a href="/api/download-file.php?file=${encodeURIComponent(file.path)}" 
+                               class="download-link" title="Download file">
+                                <i class="material-icons">download</i>
+                            </a>
+                        </div>
+                    </div>
                 `;
 
                 fileEntriesElem.appendChild(listItem);
-                listItem.addEventListener('click', () => loadMarkdownFile(file));
+                
+                // Prevent download link from triggering file load
+                listItem.querySelector('.download-link').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+                
+                // Add click handler to load the file
+                listItem.addEventListener('click', () => {
+                    loadFile(file);
+                });
             });
 
             // Load the first match if available
-            if (data.files.length > 0) {
-                loadMarkdownFile(data.files[0]);
+            if (matchingFiles.length > 0) {
+                loadFile(matchingFiles[0]);
             }
         } else {
             // Show error
@@ -519,13 +712,144 @@ async function performContentSearch(searchTerm) {
     }
 }
 
+// Upload functionality
+function setupUploadModal() {
+    const modal = document.getElementById('upload-modal');
+    const uploadButton = document.getElementById('upload-button');
+    const closeButton = document.querySelector('.close');
+    const cancelButton = document.getElementById('cancel-upload');
+    const uploadForm = document.getElementById('upload-form');
+    const progressContainer = document.getElementById('upload-progress');
+    const progressFill = document.querySelector('.progress-fill');
+    const progressText = document.querySelector('.progress-text');
+    const uploadMessage = document.getElementById('upload-message');
+
+    // Open modal when upload button is clicked
+    uploadButton.addEventListener('click', () => {
+        modal.style.display = 'block';
+        // Reset form and progress
+        uploadForm.reset();
+        progressContainer.style.display = 'none';
+        progressFill.style.width = '0%';
+        progressText.textContent = '0%';
+        uploadMessage.textContent = '';
+        uploadMessage.className = 'upload-message';
+    });
+
+    // Close modal when close button is clicked
+    closeButton.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    // Close modal when cancel button is clicked
+    cancelButton.addEventListener('click', () => {
+        modal.style.display = 'none';
+    });
+
+    // Close modal when clicking outside of it
+    window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    });
+
+    // Handle form submission
+    uploadForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        
+        const fileInput = document.getElementById('file-input');
+        const directoryInput = document.getElementById('directory-input');
+        
+        // Check if a file was selected
+        if (!fileInput.files || fileInput.files.length === 0) {
+            showUploadMessage('Please select a file to upload', 'error');
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        const directory = directoryInput.value.trim();
+        
+        // Create FormData object
+        const formData = new FormData();
+        formData.append('file', file);
+        if (directory) {
+            formData.append('directory', directory);
+        }
+        
+        // Show progress container
+        progressContainer.style.display = 'block';
+        
+        try {
+            // Create XMLHttpRequest to track upload progress
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (event) => {
+                if (event.lengthComputable) {
+                    const percentComplete = Math.round((event.loaded / event.total) * 100);
+                    progressFill.style.width = percentComplete + '%';
+                    progressText.textContent = percentComplete + '%';
+                }
+            });
+            
+            // Handle response
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.status === 'success') {
+                            showUploadMessage('File uploaded successfully!', 'success');
+                            
+                            // Reload file list after a short delay
+                            setTimeout(() => {
+                                loadFileList();
+                                modal.style.display = 'none';
+                            }, 1500);
+                        } else {
+                            showUploadMessage('Upload failed: ' + response.message, 'error');
+                        }
+                    } catch (error) {
+                        showUploadMessage('Error parsing server response', 'error');
+                    }
+                } else {
+                    showUploadMessage('Upload failed with status: ' + xhr.status, 'error');
+                }
+            };
+            
+            // Handle network errors
+            xhr.onerror = function() {
+                showUploadMessage('Network error occurred during upload', 'error');
+            };
+            
+            // Open and send the request
+            xhr.open('POST', '/api/upload-file.php', true);
+            xhr.send(formData);
+            
+        } catch (error) {
+            showUploadMessage('Error: ' + error.message, 'error');
+        }
+    });
+    
+    // Helper function to show upload messages
+    function showUploadMessage(message, type) {
+        uploadMessage.textContent = message;
+        uploadMessage.className = 'upload-message ' + type;
+    }
+}
+
 // Initialize the application
-window.onload = loadFileList;
+window.onload = function() {
+    loadFileList();
+    setupUploadModal();
+};
 
 // Handle hash changes (browser navigation)
 window.addEventListener('hashchange', () => {
     if (window.location.hash) {
-        const filename = window.location.hash.substring(1);
-        loadMarkdownFile(filename);
+        const filePath = window.location.hash.substring(1);
+        const file = allFiles.find(f => f.path === filePath);
+        if (file) {
+            loadFile(file);
+        }
     }
 });
